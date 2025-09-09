@@ -1,5 +1,5 @@
 import * as amqp from "amqplib";
-import { wsBus } from "./socket";
+import "dotenv/config";
 const url =
   process.env.RABBIT_URL ||
   "amqps://ewekxlkz:V6zQGHylYs_vqa6QBXNrOzdh1xQMPkIk@armadillo.rmq.cloudamqp.com/ewekxlkz";
@@ -7,19 +7,17 @@ const url =
 async function main() {
   const conn = await amqp.connect(url);
   const ch = await conn.createChannel();
-
-  const queues = ["transactions", "mimCustomer"];
+  const queues = ["MIMDosetech"];
 
   for (const queue of queues) {
     await ch.assertQueue(queue, { durable: true });
-
+    console.log(url);
     console.log("👂 waiting on", queue);
 
     ch.consume(queue, (msg) => {
       if (!msg) return;
       const payload = msg.content.toString();
-      console.log(`📩 [${queue}]`, msg.content.toString());
-      wsBus.broadcast({ queue, payload, ts: Date.now() });
+      console.log(`📩 [${queue}]`, payload);
       ch.ack(msg);
     });
   }

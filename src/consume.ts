@@ -8,7 +8,7 @@ const url =
 export async function startConsumer() {
   const conn = await amqp.connect(url);
   const ch = await conn.createChannel();
-  const queues = ["transactions", "mimCustomer"];
+  const queues = ["MIMDosetech"];
 
   for (const q of queues) {
     await ch.assertQueue(q, { durable: true });

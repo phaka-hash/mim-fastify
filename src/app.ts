@@ -1,6 +1,7 @@
 import Fastify from "fastify";
 import AutoLoad from "@fastify/autoload";
-
+import * as dotenv from "dotenv";
+dotenv.config();
 import { join } from "path";
 import { initMQ } from "./mq";
 const app = Fastify({ logger: true });
@@ -14,10 +15,11 @@ app.register(AutoLoad, {
   options: { prefix: "/api" },
 });
 
-const port = Number(process.env.PORT || 3000);
+const port = Number(process.env.PORT || 3001);
 const host = "0.0.0.0";
 
 app.listen({ port, host }).catch((err) => {
-  app.log.error(err);
+  app.log.error("[error]" + err);
+  // startConsumer();
   process.exit(1);
 });

@@ -14,7 +14,7 @@ export async function initMQ() {
   connection = await amqp.connect(RABBIT_URL);
   channel = await connection.createChannel();
 
-  const queue = "transactions";
+  const queue = "MIMDosetech";
   await channel.assertQueue(queue, { durable: true });
 
   return channel;
