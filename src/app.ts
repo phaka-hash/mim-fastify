@@ -4,7 +4,12 @@ import * as dotenv from "dotenv";
 dotenv.config();
 import { join } from "path";
 import { initMQ } from "./mq";
+import fastifyStatic from "@fastify/static";
+
 const app = Fastify({ logger: true });
+app.register(fastifyStatic, {
+  root: join(__dirname, "public"),
+});
 app.addHook("onReady", async () => {
   await initMQ();
   app.log.info("✅ MQ connected");
