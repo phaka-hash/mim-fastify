@@ -52,7 +52,7 @@ const root: FastifyPluginAsync = async (fastify) => {
         ? shallowClone(baseTrans) || {}
         : undefined;
       if (transactionPayload) {
-        transactionPayload.Invoice_no ??= `T0909_${pad(idx)}_${Math.floor(
+        transactionPayload.Invoice_no = `T0909_${pad(idx)}_${Math.floor(
           Math.random() * 1000
         )}`;
       }
