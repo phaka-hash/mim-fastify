@@ -5,6 +5,7 @@ const BASE =
 const shallowClone = <T>(o: T): T => (o ? JSON.parse(JSON.stringify(o)) : o);
 const pad = (n: number, w = 3) => n.toString().padStart(w, "0");
 const headers = { "Content-Type": "application/json" };
+type TargetKey = "customer" | "transaction";
 const root: FastifyPluginAsync = async (fastify) => {
   fastify.get("/", async () => {
     return { hello: "world" };
@@ -12,55 +13,28 @@ const root: FastifyPluginAsync = async (fastify) => {
 
   fastify.post<{ Body: any }>("/mock", async (req, reply) => {
     const body: any = req.body ?? {};
-    const baseTrans = body?.transaction ?? body; // พื้นฐานสำหรับ transaction (ถ้า user ส่งมา)
+    const baseTrans = body?.transaction ?? body;
     const count: number = Number(body?.count ?? 1);
     const parallel: boolean = body?.parallel === false ? false : true;
 
-    // ---- กำหนดว่าจะยิงอะไรบ้าง ----
-    const only: string | undefined = body?.only; // 'customer' | 'transaction' | 'both'
-    const targets: any = Array.isArray(body?.targets)
-      ? body.targets
-      : undefined;
-    let doCustomer: boolean;
-    let doTransaction: boolean;
+    const rawTargets: unknown = body?.targets;
+    const targets: TargetKey[] =
+      Array.isArray(rawTargets) && rawTargets.length
+        ? (rawTargets.filter(
+            (t) => t === "customer" || t === "transaction"
+          ) as TargetKey[])
+        : (["customer", "transaction"] as TargetKey[]);
 
-    if (only === "customer") {
-      doCustomer = true;
-      doTransaction = false;
-    } else if (only === "transaction") {
-      doCustomer = false;
-      doTransaction = true;
-    } else if (only === "both" || only == null) {
-      if (targets) {
-        doCustomer = targets.includes("customer");
-        doTransaction = targets.includes("transaction");
-      } else {
-        // รองรับ flag เก่า/ง่าย
-        const sc = body?.sendCustomer;
-        const st = body?.sendTransaction;
-        doCustomer = sc !== undefined ? Boolean(sc) : true;
-        doTransaction = st !== undefined ? Boolean(st) : true;
-      }
-    } else {
-      // only อื่นๆ ถือว่า both
-      doCustomer = true;
-      doTransaction = true;
-    }
+    const doCustomer = targets.includes("customer");
+    const doTransaction = targets.includes("transaction");
 
     if (!doCustomer && !doTransaction) {
       reply.code(400);
       return {
         ok: false,
         error:
-          "No target selected. Set only/targets or sendCustomer/sendTransaction.",
-        hint: {
-          examples: [
-            { only: "customer" },
-            { only: "transaction" },
-            { targets: ["customer", "transaction"] },
-            { sendCustomer: true, sendTransaction: false },
-          ],
-        },
+          'No valid targets. Use targets: ["customer"], ["transaction"], or ["customer","transaction"].',
+        hint: { example: { targets: ["customer", "transaction"], count: 3 } },
       };
     }
 
@@ -72,37 +46,52 @@ const root: FastifyPluginAsync = async (fastify) => {
       });
 
     const fireOnce = async (idx: number) => {
-      // เตรียม payload ตาม target
       const customerPayload = doCustomer ? makeRandomCustomer() : undefined;
 
       const transactionPayload = doTransaction
         ? shallowClone(baseTrans) || {}
         : undefined;
       if (transactionPayload) {
-        transactionPayload.Invoice_no = `T0909_${pad(idx)}_${Math.floor(
+        transactionPayload.Invoice_no ??= `T0909_${pad(idx)}_${Math.floor(
           Math.random() * 1000
         )}`;
       }
 
-      // จัดจ๊อบตามที่เลือก
       const jobs: {
         key: "customer" | "transactions";
-        promise: Promise<Response>;
+        run: () => Promise<any>;
       }[] = [];
       if (doCustomer) {
         jobs.push({
           key: "customer",
-          promise: postJson(`${BASE}/api/customer`, customerPayload),
+          run: async () => {
+            const res = await postJson(`${BASE}/api/customer`, customerPayload);
+            try {
+              return await res.json();
+            } catch {
+              throw new Error("Invalid JSON from /api/customer");
+            }
+          },
         });
       }
       if (doTransaction) {
         jobs.push({
           key: "transactions",
-          promise: postJson(`${BASE}/api/transactions`, transactionPayload),
+          run: async () => {
+            const res = await postJson(
+              `${BASE}/api/transactions`,
+              transactionPayload
+            );
+            try {
+              return await res.json();
+            } catch {
+              throw new Error("Invalid JSON from /api/transactions");
+            }
+          },
         });
       }
 
-      const settled = await Promise.allSettled(jobs.map((j) => j.promise));
+      const settled = await Promise.allSettled(jobs.map((j) => j.run()));
 
       const item: {
         ok: boolean;
@@ -125,40 +114,15 @@ const root: FastifyPluginAsync = async (fastify) => {
         skipped: { customer: !doCustomer, transactions: !doTransaction },
       };
 
-      // map กลับเข้า field ให้ถูก key
       settled.forEach((res, i) => {
-        const key = jobs[i].key; // 'customer' | 'transactions'
+        const key = jobs[i].key;
         if (res.status === "fulfilled") {
-          (async () => {
-            try {
-              const data = await res.value.json();
-              (item as any)[key] = data;
-            } catch {
-              item.ok = false;
-              item.errors[key] = `Invalid JSON from /api/${key}`;
-            }
-          }) as unknown;
+          (item as any)[key] = res.value;
         } else {
           item.ok = false;
           item.errors[key] = res.reason?.message || "Request failed";
         }
       });
-
-      // ต้องรอให้ทุก async json() เสร็จ
-      await Promise.all(
-        settled.map(async (res, i) => {
-          const key = jobs[i].key;
-          if (res.status === "fulfilled") {
-            try {
-              const data = await res.value.json();
-              (item as any)[key] = data;
-            } catch {
-              item.ok = false;
-              item.errors[key] = `Invalid JSON from /api/${key}`;
-            }
-          }
-        })
-      );
 
       return item;
     };
@@ -186,7 +150,7 @@ const root: FastifyPluginAsync = async (fastify) => {
 
     return {
       ok: !someFail,
-      targets: { customer: doCustomer, transaction: doTransaction },
+      targets,
       count: results.length,
       results,
     };
