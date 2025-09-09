@@ -145,14 +145,41 @@ const root: FastifyPluginAsync = async (fastify) => {
     );
     const someFail = results.some((r) => !r.ok);
 
+    const succeeded = results.filter((r) => {
+      const custOk = !doCustomer || Boolean(r.customer);
+      const txOk = !doTransaction || Boolean(r.transactions);
+      return r.ok && custOk && txOk;
+    }).length;
+    const failed = results.length - succeeded;
+
+    const byTarget = {
+      customer: doCustomer
+        ? {
+            success: results.filter((r) => Boolean(r.customer)).length,
+            failed: results.filter((r) => !r.skipped.customer && !r.customer)
+              .length,
+          }
+        : undefined,
+      transactions: doTransaction
+        ? {
+            success: results.filter((r) => Boolean(r.transactions)).length,
+            failed: results.filter(
+              (r) => !r.skipped.transactions && !r.transactions
+            ).length,
+          }
+        : undefined,
+    };
+
     if (allFail) reply.code(502);
     else if (someFail) reply.code(207);
 
     return {
       ok: !someFail,
       targets,
-      count: results.length,
-      results,
+      requested: results.length,
+      succeeded,
+      failed,
+      byTarget,
     };
   });
 };
