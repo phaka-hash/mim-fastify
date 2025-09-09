@@ -11,13 +11,11 @@ app.addHook("onReady", async () => {
 });
 const LOADER_TOKEN = "fa0b65ad6385294aaf515297345fe46d";
 
-// แบบไม่มี .txt (นิยมใช้)
-app.get(`/loaderio-${LOADER_TOKEN}`, async (req, reply) => {
+app.get(`/loaderio-${LOADER_TOKEN}/`, async (req, reply) => {
   reply.type("text/plain").send(LOADER_TOKEN);
 });
 
-// เผื่อกรณีที่ Loader.io ขอแบบ .txt
-app.get(`/loaderio-${LOADER_TOKEN}.txt`, async (req, reply) => {
+app.get(`/loaderio-${LOADER_TOKEN}.txt/`, async (req, reply) => {
   reply.type("text/plain").send(LOADER_TOKEN);
 });
 app.register(AutoLoad, {
