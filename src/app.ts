@@ -8,7 +8,8 @@ import fastifyStatic from "@fastify/static";
 
 const app = Fastify({ logger: true });
 app.register(fastifyStatic, {
-  root: join(__dirname, "public"),
+  root: join(process.cwd(), "public"), // ใช้ process.cwd() ไม่ใช่ __dirname
+  prefix: "/", // ให้เสิร์ฟจาก root
 });
 app.addHook("onReady", async () => {
   await initMQ();
