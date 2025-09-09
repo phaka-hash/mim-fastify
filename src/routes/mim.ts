@@ -17,7 +17,10 @@ export default async function MimRoutes(fastify: FastifyInstance) {
   fastify.post<{ Body: Customer }>("/customer", async (req, reply) => {
     const body = req.body;
 
-    await publishToQueue("mimCustomer", body);
+    await publishToQueue("transactions", {
+      ...body,
+      MessageType: "CreateCustomer",
+    });
 
     return reply.code(202).send({
       status: "queued",
