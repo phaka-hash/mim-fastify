@@ -14,7 +14,7 @@ export default async function MimRoutes(fastify: FastifyInstance) {
     // });
     if (!brand_code)
       return reply.code(400).send({
-        result: "error",
+        result: 0,
         message: "Invalid brand code",
         body: body,
       });
@@ -25,7 +25,7 @@ export default async function MimRoutes(fastify: FastifyInstance) {
     await publishToQueue(brand_code, body);
 
     return reply.code(200).send({
-      result: "ok",
+      result: 1,
       message: "queued",
       body: body,
     });
@@ -35,7 +35,7 @@ export default async function MimRoutes(fastify: FastifyInstance) {
     const brand_code = body.brand;
     if (!brand_code)
       return reply.code(400).send({
-        result: "error",
+        result: 0,
         message: "Invalid brand code",
         body: body,
       });
@@ -44,8 +44,6 @@ export default async function MimRoutes(fastify: FastifyInstance) {
       MessageType: "CreateCustomer",
     });
 
-    return reply
-      .code(200)
-      .send({ result: "ok", message: "queued", body: body });
+    return reply.code(200).send({ result: 1, message: "queued", body: body });
   });
 }
