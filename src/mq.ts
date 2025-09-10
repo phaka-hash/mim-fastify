@@ -14,15 +14,13 @@ export async function initMQ() {
   connection = await amqp.connect(RABBIT_URL);
   channel = await connection.createChannel();
 
-  const queue = "MIMDosetech";
-  await channel.assertQueue(queue, { durable: true });
-
   return channel;
 }
 
 export async function publishToQueue(queue: string, msg: unknown) {
   if (!channel) await initMQ();
   // console.log(msg, channel);
+  await channel.assertQueue(queue, { durable: true });
   channel!.sendToQueue(queue, Buffer.from(JSON.stringify(msg)), {
     persistent: true,
     contentType: "application/json",
