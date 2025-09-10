@@ -86,4 +86,5 @@ export interface Customer {
   id_card: string | null;
   passport_no: string | null;
   telephone_country_id: number | null;
+  brand_code: string | null;
 }
