@@ -14,28 +14,29 @@ export default async function MimRoutes(fastify: FastifyInstance) {
     // });
     if (!brand_code)
       return reply.code(400).send({
-        status: "no brand code",
-        invoice: body.Invoice_no,
+        result: "error",
+        message: "Invalid brand code",
         body: body,
       });
-    const pad = (n: number, w = 3) => n.toString().padStart(w, "0");
-    body.Invoice_no = `T0909_${pad(
-      Math.floor(Math.random() * 1000)
-    )}_${Math.floor(Math.random() * 1000)}`;
+    // const pad = (n: number, w = 3) => n.toString().padStart(w, "0");
+    // body.Invoice_no = `T0909_${pad(
+    //   Math.floor(Math.random() * 1000)
+    // )}_${Math.floor(Math.random() * 1000)}`;
     await publishToQueue(brand_code, body);
 
-    return reply.code(202).send({
-      status: "queued",
-      invoice: body.Invoice_no,
+    return reply.code(200).send({
+      result: "ok",
+      message: "queued",
       body: body,
     });
   });
   fastify.post<{ Body: Customer }>("/customer", async (req, reply) => {
     const body = req.body;
-    const brand_code = body.brand_code;
+    const brand_code = body.brand;
     if (!brand_code)
       return reply.code(400).send({
-        status: "no brand code",
+        result: "error",
+        message: "Invalid brand code",
         body: body,
       });
     await publishToQueue(brand_code, {
@@ -43,9 +44,8 @@ export default async function MimRoutes(fastify: FastifyInstance) {
       MessageType: "CreateCustomer",
     });
 
-    return reply.code(202).send({
-      status: "queued",
-      body: body,
-    });
+    return reply
+      .code(200)
+      .send({ result: "ok", message: "queued", body: body });
   });
 }
